@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>F1S Timer - Test konfig</title>
+<style>
+  :root {
+    --bg: #f4f4f2;
+    --card: #ffffff;
+    --border: #d8d6cf;
+    --text: #26251f;
+    --muted: #6b6a62;
+    --accent: #185fa5;
+    --accent-dark: #0c447c;
+    --ok: #3b6d11;
+    --err: #a32d2d;
+    --radius: 10px;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 20px;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-size: 16px;
+    line-height: 1.5;
+  }
+  .wrap { max-width: 420px; margin: 0 auto; }
+  h1 {
+    font-size: 20px;
+    font-weight: 600;
+    margin: 0 0 4px;
+  }
+  .sub {
+    color: var(--muted);
+    font-size: 14px;
+    margin: 0 0 20px;
+  }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px;
+    margin-bottom: 16px;
+  }
+  .status-line {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    margin-bottom: 14px;
+  }
+  .dot {
+    width: 9px; height: 9px; border-radius: 50%;
+    background: var(--muted);
+    flex-shrink: 0;
+  }
+  .dot.connected { background: var(--ok); }
+  .dot.error { background: var(--err); }
+
+  button {
+    width: 100%;
+    padding: 13px;
+    border: none;
+    border-radius: var(--radius);
+    background: var(--accent);
+    color: #fff;
+    font-size: 16px;
+    font-weight: 500;
+    cursor: pointer;
+  }
+  button:active { background: var(--accent-dark); }
+  button:disabled { background: var(--border); color: var(--muted); cursor: not-allowed; }
+
+  input[type="text"], input[type="number"] {
+    width: 100%;
+    padding: 11px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 16px;
+    background: #fff;
+    color: var(--text);
+  }
+
+  .pin-row { display: flex; gap: 8px; margin-top: 10px; }
+  .pin-row input { flex: 1; letter-spacing: 4px; text-align: center; }
+  .pin-row button { width: auto; padding: 11px 18px; flex-shrink: 0; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 4px;
+  }
+  th {
+    text-align: left;
+    font-size: 13px;
+    color: var(--muted);
+    font-weight: 500;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+  td {
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+  }
+  tr:last-child td { border-bottom: none; }
+  td.label { font-weight: 500; }
+  td.unit { color: var(--muted); font-size: 13px; text-align: right; width: 44px; }
+  td.value input { width: 90px; padding: 8px; }
+
+  .save-row { margin-top: 16px; }
+
+  .msg {
+    font-size: 13px;
+    margin-top: 8px;
+    min-height: 18px;
+  }
+  .msg.ok { color: var(--ok); }
+  .msg.err { color: var(--err); }
+
+  .hidden { display: none !important; }
+
+  .ios-note {
+    background: #fdf5e8;
+    border: 1px solid #edd9ad;
+    border-radius: var(--radius);
+    padding: 12px 14px;
+    font-size: 13px;
+    color: #6b5111;
+    margin-bottom: 16px;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>F1S timer - test konfig</h1>
+  <p class="sub">Simpel testside til ESC-værdier over Bluetooth Low Energy</p>
+
+  <div id="iosNote" class="ios-note hidden">
+    Safari understøtter ikke Bluetooth. Åbn denne side i <strong>Bluefy</strong> (gratis app fra App Store) for at forbinde.
+  </div>
+
+  <div class="card">
+    <div class="status-line">
+      <div id="statusDot" class="dot"></div>
+      <span id="statusText">Ikke forbundet</span>
+    </div>
+    <button id="connectBtn">Forbind til timer</button>
+  </div>
+
+  <div id="authCard" class="card hidden">
+    <div class="label" style="font-weight:500; margin-bottom:4px;">Adgangskode</div>
+    <div class="pin-row">
+      <input type="text" id="pinInput" inputmode="numeric" maxlength="6" placeholder="Kode">
+      <button id="unlockBtn">Lås op</button>
+    </div>
+    <div id="authMsg" class="msg"></div>
+  </div>
+
+  <div id="configCard" class="card hidden">
+    <table>
+      <thead>
+        <tr><th>Værdi</th><th></th><th class="unit">Enhed</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="label">Tomgang power</td>
+          <td class="value"><input type="number" id="idleInput" min="1000" max="2000"></td>
+          <td class="unit">µs</td>
+        </tr>
+        <tr>
+          <td class="label">Climb power</td>
+          <td class="value"><input type="number" id="climbInput" min="1000" max="2000"></td>
+          <td class="unit">µs</td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="save-row">
+      <button id="saveBtn">Gem værdier</button>
+    </div>
+    <div id="saveMsg" class="msg"></div>
+  </div>
+</div>
+
+<script>
+// ---- Skal matche ESP32-firmwaren nøjagtigt ----
+const SERVICE_UUID       = "12345678-1234-5678-1234-56789abcdef0";
+const CHAR_AUTH_UUID     = "12345678-1234-5678-1234-56789abcdef1";
+const CHAR_AUTH_STAT_UUID= "12345678-1234-5678-1234-56789abcdef2";
+const CHAR_IDLE_UUID     = "12345678-1234-5678-1234-56789abcdef3";
+const CHAR_CLIMB_UUID    = "12345678-1234-5678-1234-56789abcdef4";
+// ------------------------------------------------
+
+let device, server, authChar, authStatChar, idleChar, climbChar;
+const enc = new TextEncoder();
+const dec = new TextDecoder();
+
+const statusDot = document.getElementById('statusDot');
+const statusText = document.getElementById('statusText');
+const connectBtn = document.getElementById('connectBtn');
+const authCard = document.getElementById('authCard');
+const configCard = document.getElementById('configCard');
+const authMsg = document.getElementById('authMsg');
+const saveMsg = document.getElementById('saveMsg');
+
+// iOS check - Safari kan ikke Web Bluetooth
+if (/iP(hone|ad|od)/.test(navigator.userAgent) && !navigator.bluetooth) {
+  document.getElementById('iosNote').classList.remove('hidden');
+}
+if (!navigator.bluetooth) {
+  connectBtn.disabled = true;
+  connectBtn.textContent = "Bluetooth ikke tilgængelig i denne browser";
+}
+
+function setStatus(text, cls) {
+  statusText.textContent = text;
+  statusDot.className = 'dot' + (cls ? ' ' + cls : '');
+}
+
+connectBtn.addEventListener('click', async () => {
+  try {
+    setStatus('Søger...', '');
+    device = await navigator.bluetooth.requestDevice({
+      filters: [{ services: [SERVICE_UUID] }]
+    });
+    device.addEventListener('gattserverdisconnected', onDisconnected);
+
+    server = await device.gatt.connect();
+    const service = await server.getPrimaryService(SERVICE_UUID);
+
+    authChar = await service.getCharacteristic(CHAR_AUTH_UUID);
+    authStatChar = await service.getCharacteristic(CHAR_AUTH_STAT_UUID);
+    idleChar = await service.getCharacteristic(CHAR_IDLE_UUID);
+    climbChar = await service.getCharacteristic(CHAR_CLIMB_UUID);
+
+    setStatus('Forbundet - lås op med kode', 'connected');
+    authCard.classList.remove('hidden');
+    connectBtn.textContent = "Forbundet";
+    connectBtn.disabled = true;
+  } catch (err) {
+    setStatus('Kunne ikke forbinde', 'error');
+    console.error(err);
+  }
+});
+
+function onDisconnected() {
+  setStatus('Forbindelse afbrudt', 'error');
+  authCard.classList.add('hidden');
+  configCard.classList.add('hidden');
+  connectBtn.textContent = "Forbind til timer";
+  connectBtn.disabled = false;
+}
+
+document.getElementById('unlockBtn').addEventListener('click', async () => {
+  const pin = document.getElementById('pinInput').value.trim();
+  if (!pin) return;
+  try {
+    await authChar.writeValue(enc.encode(pin));
+    const val = await authStatChar.readValue();
+    const result = dec.decode(val);
+
+    if (result === 'unlocked') {
+      authMsg.textContent = '';
+      authCard.classList.add('hidden');
+      configCard.classList.remove('hidden');
+      await loadCurrentValues();
+    } else {
+      authMsg.textContent = 'Forkert kode';
+      authMsg.className = 'msg err';
+    }
+  } catch (err) {
+    authMsg.textContent = 'Fejl ved kommunikation';
+    authMsg.className = 'msg err';
+    console.error(err);
+  }
+});
+
+async function loadCurrentValues() {
+  try {
+    const idleVal = await idleChar.readValue();
+    const climbVal = await climbChar.readValue();
+    document.getElementById('idleInput').value = dec.decode(idleVal);
+    document.getElementById('climbInput').value = dec.decode(climbVal);
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+document.getElementById('saveBtn').addEventListener('click', async () => {
+  const idle = document.getElementById('idleInput').value;
+  const climb = document.getElementById('climbInput').value;
+
+  try {
+    await idleChar.writeValue(enc.encode(idle));
+    await climbChar.writeValue(enc.encode(climb));
+    saveMsg.textContent = 'Gemt';
+    saveMsg.className = 'msg ok';
+    setTimeout(() => { saveMsg.textContent = ''; }, 2000);
+  } catch (err) {
+    saveMsg.textContent = 'Kunne ikke gemme - er konfig-vinduet stadig åbent?';
+    saveMsg.className = 'msg err';
+    console.error(err);
+  }
+});
+</script>
+</body>
+</html>
