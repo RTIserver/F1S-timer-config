@@ -217,7 +217,7 @@ document.getElementById('unlockBtn').addEventListener('click', async () => {
       const result = dec.decode(val);
       lastRawValue = result;
       authMsg.textContent = 'Tjekker... (' + i + ': "' + result + '")';
-      if (result === 'unlocked' || result === 'denied') {
+      if (result === 'U' || result === 'D') {
         handleAuthResult(result);
       }
     } catch (err) {
@@ -240,12 +240,12 @@ function handleAuthResult(result) {
   if (authHandled) return;
   authHandled = true;
 
-  if (result === 'unlocked') {
+  if (result === 'U') {
     authMsg.textContent = '';
     authCard.classList.add('hidden');
     configCard.classList.remove('hidden');
     loadCurrentValues();
-  } else if (result === 'denied') {
+  } else if (result === 'D') {
     authMsg.textContent = 'Forkert kode';
     authMsg.className = 'msg err';
   }
@@ -253,8 +253,8 @@ function handleAuthResult(result) {
 
 async function loadCurrentValues() {
   try {
-    const idleVal = await idleChar.readValue();
-    const climbVal = await climbChar.readValue();
+    const val = await authStatChar.readValue();
+    const result = dec.decode(val).trim().replace(/\0/g, '');
     document.getElementById('idleInput').value = dec.decode(idleVal);
     document.getElementById('climbInput').value = dec.decode(climbVal);
   } catch (err) {
