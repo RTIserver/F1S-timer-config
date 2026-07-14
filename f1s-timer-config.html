@@ -138,7 +138,7 @@
 <div class="wrap">
   <h1>F1S timer - test konfig</h1>
   <p class="sub">Simpel testside til ESC-værdier over Bluetooth Low Energy</p>
-  <p class="sub" style="color:#a32d2d; font-weight:600;">Version: v3-fallback</p>
+  <p class="sub" style="color:#a32d2d; font-weight:600;">Version: v4-polling</p>
 
   <div id="iosNote" class="ios-note hidden">
     Safari understøtter ikke Bluetooth. Åbn denne side i <strong>Bluefy</strong> (gratis app fra App Store) for at forbinde.
@@ -237,11 +237,6 @@ connectBtn.addEventListener('click', async () => {
     idleChar = await service.getCharacteristic(CHAR_IDLE_UUID);
     climbChar = await service.getCharacteristic(CHAR_CLIMB_UUID);
 
-    // Abonnér på status-beskeder i stedet for at læse værdien selv bagefter -
-    // undgår cache-problemer der er set på iOS/Bluefy ved read-lige-efter-write
-    await authStatChar.startNotifications();
-    authStatChar.addEventListener('characteristicvaluechanged', onAuthStatusChanged);
-
     setStatus('Forbundet - lås op med kode', 'connected');
     authCard.classList.remove('hidden');
     connectBtn.textContent = "Forbundet";
@@ -266,26 +261,36 @@ document.getElementById('unlockBtn').addEventListener('click', async () => {
   const pin = document.getElementById('pinInput').value.trim();
   if (!pin) return;
   authHandled = false;
-  try {
-    authMsg.textContent = 'Tjekker...';
-    authMsg.className = 'msg';
-    await authChar.writeValue(enc.encode(pin));
+  authMsg.textContent = 'Tjekker...';
+  authMsg.className = 'msg';
 
-    // Sikkerhedsnet: nogle iOS-browsere (bl.a. Bluefy) leverer ikke altid
-    // notify-beskeden. Hvis intet er sket efter 800ms, læses status manuelt.
-    setTimeout(async () => {
-      if (authHandled) return;
-      try {
-        const val = await authStatChar.readValue();
-        handleAuthResult(dec.decode(val));
-      } catch (err) {
-        console.error('Fallback-read fejlede', err);
-      }
-    }, 800);
+  try {
+    await authChar.writeValue(enc.encode(pin));
   } catch (err) {
     authMsg.textContent = 'Fejl ved kommunikation';
     authMsg.className = 'msg err';
     console.error(err);
+    return;
+  }
+
+  // Poll status i stedet for notify - mere pålideligt på tværs af iOS/Android.
+  // Prøver op til 10 gange med 300ms mellemrum (i alt op til 3 sekunder).
+  for (let i = 0; i < 10 && !authHandled; i++) {
+    await new Promise(r => setTimeout(r, 300));
+    try {
+      const val = await authStatChar.readValue();
+      const result = dec.decode(val);
+      if (result === 'unlocked' || result === 'denied') {
+        handleAuthResult(result);
+      }
+    } catch (err) {
+      console.error('Read-forsøg fejlede', err);
+    }
+  }
+
+  if (!authHandled) {
+    authMsg.textContent = 'Intet svar fra timer - prøv igen';
+    authMsg.className = 'msg err';
   }
 });
 
@@ -302,10 +307,6 @@ function handleAuthResult(result) {
     authMsg.textContent = 'Forkert kode';
     authMsg.className = 'msg err';
   }
-}
-
-async function onAuthStatusChanged(event) {
-  handleAuthResult(dec.decode(event.target.value));
 }
 
 async function loadCurrentValues() {
