@@ -138,7 +138,7 @@
 <div class="wrap">
   <h1>F1S timer - test konfig</h1>
   <p class="sub">Simpel testside til ESC-værdier over Bluetooth Low Energy</p>
-  <p class="sub" style="color:#a32d2d; font-weight:600;">Version: v2-notify</p>
+  <p class="sub" style="color:#a32d2d; font-weight:600;">Version: v3-fallback</p>
 
   <div id="iosNote" class="ios-note hidden">
     Safari understøtter ikke Bluetooth. Åbn denne side i <strong>Bluefy</strong> (gratis app fra App Store) for at forbinde.
@@ -260,14 +260,28 @@ function onDisconnected() {
   connectBtn.disabled = false;
 }
 
+let authHandled = false;
+
 document.getElementById('unlockBtn').addEventListener('click', async () => {
   const pin = document.getElementById('pinInput').value.trim();
   if (!pin) return;
+  authHandled = false;
   try {
     authMsg.textContent = 'Tjekker...';
     authMsg.className = 'msg';
     await authChar.writeValue(enc.encode(pin));
-    // Svaret (unlocked/denied) håndteres af onAuthStatusChanged via notify
+
+    // Sikkerhedsnet: nogle iOS-browsere (bl.a. Bluefy) leverer ikke altid
+    // notify-beskeden. Hvis intet er sket efter 800ms, læses status manuelt.
+    setTimeout(async () => {
+      if (authHandled) return;
+      try {
+        const val = await authStatChar.readValue();
+        handleAuthResult(dec.decode(val));
+      } catch (err) {
+        console.error('Fallback-read fejlede', err);
+      }
+    }, 800);
   } catch (err) {
     authMsg.textContent = 'Fejl ved kommunikation';
     authMsg.className = 'msg err';
@@ -275,18 +289,23 @@ document.getElementById('unlockBtn').addEventListener('click', async () => {
   }
 });
 
-async function onAuthStatusChanged(event) {
-  const result = dec.decode(event.target.value);
+function handleAuthResult(result) {
+  if (authHandled) return; // undgå at håndtere svaret to gange
+  authHandled = true;
 
   if (result === 'unlocked') {
     authMsg.textContent = '';
     authCard.classList.add('hidden');
     configCard.classList.remove('hidden');
-    await loadCurrentValues();
+    loadCurrentValues();
   } else if (result === 'denied') {
     authMsg.textContent = 'Forkert kode';
     authMsg.className = 'msg err';
   }
+}
+
+async function onAuthStatusChanged(event) {
+  handleAuthResult(dec.decode(event.target.value));
 }
 
 async function loadCurrentValues() {
