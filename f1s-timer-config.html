@@ -236,6 +236,11 @@ connectBtn.addEventListener('click', async () => {
     idleChar = await service.getCharacteristic(CHAR_IDLE_UUID);
     climbChar = await service.getCharacteristic(CHAR_CLIMB_UUID);
 
+    // Abonnér på status-beskeder i stedet for at læse værdien selv bagefter -
+    // undgår cache-problemer der er set på iOS/Bluefy ved read-lige-efter-write
+    await authStatChar.startNotifications();
+    authStatChar.addEventListener('characteristicvaluechanged', onAuthStatusChanged);
+
     setStatus('Forbundet - lås op med kode', 'connected');
     authCard.classList.remove('hidden');
     connectBtn.textContent = "Forbundet";
@@ -258,25 +263,30 @@ document.getElementById('unlockBtn').addEventListener('click', async () => {
   const pin = document.getElementById('pinInput').value.trim();
   if (!pin) return;
   try {
+    authMsg.textContent = 'Tjekker...';
+    authMsg.className = 'msg';
     await authChar.writeValue(enc.encode(pin));
-    const val = await authStatChar.readValue();
-    const result = dec.decode(val);
-
-    if (result === 'unlocked') {
-      authMsg.textContent = '';
-      authCard.classList.add('hidden');
-      configCard.classList.remove('hidden');
-      await loadCurrentValues();
-    } else {
-      authMsg.textContent = 'Forkert kode';
-      authMsg.className = 'msg err';
-    }
+    // Svaret (unlocked/denied) håndteres af onAuthStatusChanged via notify
   } catch (err) {
     authMsg.textContent = 'Fejl ved kommunikation';
     authMsg.className = 'msg err';
     console.error(err);
   }
 });
+
+async function onAuthStatusChanged(event) {
+  const result = dec.decode(event.target.value);
+
+  if (result === 'unlocked') {
+    authMsg.textContent = '';
+    authCard.classList.add('hidden');
+    configCard.classList.remove('hidden');
+    await loadCurrentValues();
+  } else if (result === 'denied') {
+    authMsg.textContent = 'Forkert kode';
+    authMsg.className = 'msg err';
+  }
+}
 
 async function loadCurrentValues() {
   try {
