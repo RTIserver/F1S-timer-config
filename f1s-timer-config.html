@@ -69,7 +69,7 @@
 <div class="wrap">
   <h1>F1S timer - test konfig</h1>
   <p class="sub">Simpel testside til ESC-værdier over Bluetooth Low Energy</p>
-  <p class="sub" style="color:#a32d2d; font-weight:600;">Version: v8-load-retry</p>
+  <p class="sub" style="color:#a32d2d; font-weight:600;">Version: v9-timeout</p>
 
   <div id="iosNote" class="ios-note hidden">
     Safari understøtter ikke Bluetooth. Åbn denne side i <strong>Bluefy</strong> (gratis app fra App Store) for at forbinde.
@@ -244,14 +244,22 @@ function handleAuthResult(result) {
   }
 }
 
+function readWithTimeout(characteristic, ms) {
+  return Promise.race([
+    characteristic.readValue(),
+    new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), ms))
+  ]);
+}
+
 async function loadCurrentValues() {
   saveMsg.textContent = 'Henter værdier...';
   saveMsg.className = 'msg';
 
   for (let i = 0; i < 8; i++) {
+    saveMsg.textContent = 'Henter værdier... (forsøg ' + (i + 1) + ')';
     try {
-      const idleVal = await idleChar.readValue();
-      const climbVal = await climbChar.readValue();
+      const idleVal = await readWithTimeout(idleChar, 1500);
+      const climbVal = await readWithTimeout(climbChar, 1500);
       const idleStr = dec.decode(idleVal).trim().replace(/\0/g, '');
       const climbStr = dec.decode(climbVal).trim().replace(/\0/g, '');
 
