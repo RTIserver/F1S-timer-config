@@ -69,7 +69,7 @@
 <div class="wrap">
   <h1>F1S timer - test konfig</h1>
   <p class="sub">Simpel testside til ESC-værdier over Bluetooth Low Energy</p>
-  <p class="sub" style="color:#a32d2d; font-weight:600;">Version: v14-uden-opdater</p>
+  <p class="sub" style="color:#a32d2d; font-weight:600;">Version: v15-fast-laengde</p>
 
   <div id="iosNote" class="ios-note hidden">
     Safari understøtter ikke Bluetooth. Åbn denne side i <strong>Bluefy</strong> (gratis app fra App Store) for at forbinde.
@@ -210,7 +210,7 @@ async function checkPin(pin, msgEl) {
       const result = dec.decode(val).trim().replace(/\0/g, '');
       lastRawValue = result;
       msgEl.textContent = 'Tjekker... (' + i + ': "' + result + '")';
-      if (result.startsWith('U') || result === 'D') {
+      if (result.startsWith('U') || result.startsWith('D')) {
         handleAuthResult(result);
       }
     } catch (err) {
@@ -250,7 +250,7 @@ function handleAuthResult(rawResult) {
     if (climb) document.getElementById('climbInput').value = climb;
     saveMsg.textContent = 'Aktuelle værdier vist ovenfor';
     saveMsg.className = 'msg ok';
-  } else if (rawResult === 'D') {
+  } else if (rawResult.startsWith('D')) {
     authMsg.textContent = 'Forkert kode';
     authMsg.className = 'msg err';
   }
