@@ -69,7 +69,7 @@
 <div class="wrap">
   <h1>F1S timer - test konfig</h1>
   <p class="sub">Simpel testside til ESC-værdier over Bluetooth Low Energy</p>
-  <p class="sub" style="color:#a32d2d; font-weight:600;">Version: v11-uafhaengige-reads</p>
+  <p class="sub" style="color:#a32d2d; font-weight:600;">Version: v14-uden-opdater</p>
 
   <div id="iosNote" class="ios-note hidden">
     Safari understøtter ikke Bluetooth. Åbn denne side i <strong>Bluefy</strong> (gratis app fra App Store) for at forbinde.
@@ -100,12 +100,12 @@
       <tbody>
         <tr>
           <td class="label">Tomgang power</td>
-          <td class="value"><input type="number" id="idleInput" min="1000" max="2000"></td>
+          <td class="value"><input type="number" id="idleInput" min="1000" max="2000" value="1150"></td>
           <td class="unit">µs</td>
         </tr>
         <tr>
           <td class="label">Climb power</td>
-          <td class="value"><input type="number" id="climbInput" min="1000" max="2000"></td>
+          <td class="value"><input type="number" id="climbInput" min="1000" max="2000" value="1650"></td>
           <td class="unit">µs</td>
         </tr>
       </tbody>
@@ -184,19 +184,19 @@ function onDisconnected() {
 }
 
 let authHandled = false;
+let lastPin = '';
 
-document.getElementById('unlockBtn').addEventListener('click', async () => {
-  const pin = document.getElementById('pinInput').value.trim();
+async function checkPin(pin, msgEl) {
   if (!pin) return;
   authHandled = false;
-  authMsg.textContent = 'Tjekker...';
-  authMsg.className = 'msg';
+  msgEl.textContent = 'Tjekker...';
+  msgEl.className = 'msg';
 
   try {
     await authChar.writeValue(enc.encode(pin));
   } catch (err) {
-    authMsg.textContent = 'Fejl ved skrivning: ' + err.message;
-    authMsg.className = 'msg err';
+    msgEl.textContent = 'Fejl ved skrivning: ' + err.message;
+    msgEl.className = 'msg err';
     console.error(err);
     return;
   }
@@ -209,8 +209,8 @@ document.getElementById('unlockBtn').addEventListener('click', async () => {
       const val = await authStatChar.readValue();
       const result = dec.decode(val).trim().replace(/\0/g, '');
       lastRawValue = result;
-      authMsg.textContent = 'Tjekker... (' + i + ': "' + result + '")';
-      if (result === 'U' || result === 'D') {
+      msgEl.textContent = 'Tjekker... (' + i + ': "' + result + '")';
+      if (result.startsWith('U') || result === 'D') {
         handleAuthResult(result);
       }
     } catch (err) {
@@ -221,82 +221,38 @@ document.getElementById('unlockBtn').addEventListener('click', async () => {
 
   if (!authHandled) {
     if (lastError) {
-      authMsg.textContent = 'Fejl: ' + lastError.message;
+      msgEl.textContent = 'Fejl: ' + lastError.message;
     } else {
-      authMsg.textContent = 'Fik altid: "' + lastRawValue + '" - ingen ændring';
+      msgEl.textContent = 'Fik altid: "' + lastRawValue + '" - ingen ændring';
     }
-    authMsg.className = 'msg err';
+    msgEl.className = 'msg err';
   }
+}
+
+document.getElementById('unlockBtn').addEventListener('click', async () => {
+  const pin = document.getElementById('pinInput').value.trim();
+  lastPin = pin;
+  await checkPin(pin, authMsg);
 });
 
-function handleAuthResult(result) {
+function handleAuthResult(rawResult) {
   if (authHandled) return;
   authHandled = true;
 
-  if (result === 'U') {
+  if (rawResult.startsWith('U')) {
+    const parts = rawResult.split(':');
+    const idle = parts[1] || '';
+    const climb = parts[2] || '';
     authMsg.textContent = '';
     authCard.classList.add('hidden');
     configCard.classList.remove('hidden');
-    loadCurrentValues();
-  } else if (result === 'D') {
+    if (idle) document.getElementById('idleInput').value = idle;
+    if (climb) document.getElementById('climbInput').value = climb;
+    saveMsg.textContent = 'Aktuelle værdier vist ovenfor';
+    saveMsg.className = 'msg ok';
+  } else if (rawResult === 'D') {
     authMsg.textContent = 'Forkert kode';
     authMsg.className = 'msg err';
-  }
-}
-
-function readWithTimeout(characteristic, ms) {
-  return Promise.race([
-    characteristic.readValue(),
-    new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), ms))
-  ]);
-}
-
-async function loadCurrentValues() {
-  saveMsg.textContent = 'Henter værdier...';
-  saveMsg.className = 'msg';
-
-  let idleStr = '';
-  let climbStr = '';
-
-  for (let i = 0; i < 10 && (!idleStr || !climbStr); i++) {
-    saveMsg.textContent = 'Henter værdier... (forsøg ' + (i + 1) + ')';
-
-    if (!idleStr) {
-      try {
-        const idleVal = await readWithTimeout(idleChar, 1500);
-        idleStr = dec.decode(idleVal).replace(/[^0-9]/g, '');
-      } catch (err) {
-        console.error('Idle-read fejlede', err);
-      }
-    }
-
-    await new Promise(r => setTimeout(r, 200));
-
-    if (!climbStr) {
-      try {
-        const climbVal = await readWithTimeout(climbChar, 1500);
-        climbStr = dec.decode(climbVal).replace(/[^0-9]/g, '');
-      } catch (err) {
-        console.error('Climb-read fejlede', err);
-      }
-    }
-
-    if (!idleStr || !climbStr) {
-      await new Promise(r => setTimeout(r, 300));
-    }
-  }
-
-  if (idleStr) document.getElementById('idleInput').value = idleStr;
-  if (climbStr) document.getElementById('climbInput').value = climbStr;
-
-  if (idleStr && climbStr) {
-    saveMsg.textContent = '';
-  } else {
-    const missing = [];
-    if (!idleStr) missing.push('tomgang');
-    if (!climbStr) missing.push('climb');
-    saveMsg.textContent = 'Kunne ikke hente: ' + missing.join(', ') + ' - prøv at forbinde igen';
-    saveMsg.className = 'msg err';
   }
 }
 
