@@ -69,7 +69,7 @@
 <div class="wrap">
   <h1>F1S timer - test konfig</h1>
   <p class="sub">Simpel testside til ESC-værdier over Bluetooth Low Energy</p>
-  <p class="sub" style="color:#a32d2d; font-weight:600;">Version: v9-timeout</p>
+  <p class="sub" style="color:#a32d2d; font-weight:600;">Version: v10-cifre-rens</p>
 
   <div id="iosNote" class="ios-note hidden">
     Safari understøtter ikke Bluetooth. Åbn denne side i <strong>Bluefy</strong> (gratis app fra App Store) for at forbinde.
@@ -260,8 +260,10 @@ async function loadCurrentValues() {
     try {
       const idleVal = await readWithTimeout(idleChar, 1500);
       const climbVal = await readWithTimeout(climbChar, 1500);
-      const idleStr = dec.decode(idleVal).trim().replace(/\0/g, '');
-      const climbStr = dec.decode(climbVal).trim().replace(/\0/g, '');
+      // Kun rene cifre - type="number" felter afviser tavst enhver
+      // vaerdi med usynlige/ugyldige tegn, uden at give nogen fejl.
+      const idleStr = dec.decode(idleVal).replace(/[^0-9]/g, '');
+      const climbStr = dec.decode(climbVal).replace(/[^0-9]/g, '');
 
       if (idleStr && climbStr) {
         document.getElementById('idleInput').value = idleStr;
