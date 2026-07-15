@@ -69,7 +69,7 @@
 <div class="wrap">
   <h1>F1S timer - test konfig</h1>
   <p class="sub">Simpel testside til ESC-værdier over Bluetooth Low Energy</p>
-  <p class="sub" style="color:#a32d2d; font-weight:600;">Version: v10-cifre-rens</p>
+  <p class="sub" style="color:#a32d2d; font-weight:600;">Version: v11-uafhaengige-reads</p>
 
   <div id="iosNote" class="ios-note hidden">
     Safari understøtter ikke Bluetooth. Åbn denne side i <strong>Bluefy</strong> (gratis app fra App Store) for at forbinde.
@@ -255,30 +255,49 @@ async function loadCurrentValues() {
   saveMsg.textContent = 'Henter værdier...';
   saveMsg.className = 'msg';
 
-  for (let i = 0; i < 8; i++) {
-    saveMsg.textContent = 'Henter værdier... (forsøg ' + (i + 1) + ')';
-    try {
-      const idleVal = await readWithTimeout(idleChar, 1500);
-      const climbVal = await readWithTimeout(climbChar, 1500);
-      // Kun rene cifre - type="number" felter afviser tavst enhver
-      // vaerdi med usynlige/ugyldige tegn, uden at give nogen fejl.
-      const idleStr = dec.decode(idleVal).replace(/[^0-9]/g, '');
-      const climbStr = dec.decode(climbVal).replace(/[^0-9]/g, '');
+  let idleStr = '';
+  let climbStr = '';
 
-      if (idleStr && climbStr) {
-        document.getElementById('idleInput').value = idleStr;
-        document.getElementById('climbInput').value = climbStr;
-        saveMsg.textContent = '';
-        return;
+  for (let i = 0; i < 10 && (!idleStr || !climbStr); i++) {
+    saveMsg.textContent = 'Henter værdier... (forsøg ' + (i + 1) + ')';
+
+    if (!idleStr) {
+      try {
+        const idleVal = await readWithTimeout(idleChar, 1500);
+        idleStr = dec.decode(idleVal).replace(/[^0-9]/g, '');
+      } catch (err) {
+        console.error('Idle-read fejlede', err);
       }
-    } catch (err) {
-      console.error('Read-forsøg fejlede', err);
     }
-    await new Promise(r => setTimeout(r, 300));
+
+    await new Promise(r => setTimeout(r, 200));
+
+    if (!climbStr) {
+      try {
+        const climbVal = await readWithTimeout(climbChar, 1500);
+        climbStr = dec.decode(climbVal).replace(/[^0-9]/g, '');
+      } catch (err) {
+        console.error('Climb-read fejlede', err);
+      }
+    }
+
+    if (!idleStr || !climbStr) {
+      await new Promise(r => setTimeout(r, 300));
+    }
   }
 
-  saveMsg.textContent = 'Kunne ikke hente værdier fra timer - prøv at forbinde igen';
-  saveMsg.className = 'msg err';
+  if (idleStr) document.getElementById('idleInput').value = idleStr;
+  if (climbStr) document.getElementById('climbInput').value = climbStr;
+
+  if (idleStr && climbStr) {
+    saveMsg.textContent = '';
+  } else {
+    const missing = [];
+    if (!idleStr) missing.push('tomgang');
+    if (!climbStr) missing.push('climb');
+    saveMsg.textContent = 'Kunne ikke hente: ' + missing.join(', ') + ' - prøv at forbinde igen';
+    saveMsg.className = 'msg err';
+  }
 }
 
 document.getElementById('saveBtn').addEventListener('click', async () => {
