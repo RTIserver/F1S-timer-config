@@ -19,23 +19,16 @@
   }
   * { box-sizing: border-box; }
   body {
-    margin: 0;
-    padding: 20px;
-    background: var(--bg);
-    color: var(--text);
+    margin: 0; padding: 20px; background: var(--bg); color: var(--text);
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    font-size: 16px;
-    line-height: 1.5;
+    font-size: 16px; line-height: 1.5;
   }
   .wrap { max-width: 420px; margin: 0 auto; }
   h1 { font-size: 20px; font-weight: 600; margin: 0 0 4px; }
   .sub { color: var(--muted); font-size: 14px; margin: 0 0 20px; }
   .card {
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 18px;
-    margin-bottom: 16px;
+    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 18px; margin-bottom: 16px;
   }
   .status-line { display: flex; align-items: center; gap: 8px; font-size: 14px; margin-bottom: 14px; }
   .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); flex-shrink: 0; }
@@ -76,7 +69,7 @@
 <div class="wrap">
   <h1>F1S timer - test konfig</h1>
   <p class="sub">Simpel testside til ESC-værdier over Bluetooth Low Energy</p>
-  <p class="sub" style="color:#a32d2d; font-weight:600;">Version: v6-raa-vaerdi</p>
+  <p class="sub" style="color:#a32d2d; font-weight:600;">Version: v7-letterkoder</p>
 
   <div id="iosNote" class="ios-note hidden">
     Safari understøtter ikke Bluetooth. Åbn denne side i <strong>Bluefy</strong> (gratis app fra App Store) for at forbinde.
@@ -214,7 +207,7 @@ document.getElementById('unlockBtn').addEventListener('click', async () => {
     await new Promise(r => setTimeout(r, 300));
     try {
       const val = await authStatChar.readValue();
-      const result = dec.decode(val);
+      const result = dec.decode(val).trim().replace(/\0/g, '');
       lastRawValue = result;
       authMsg.textContent = 'Tjekker... (' + i + ': "' + result + '")';
       if (result === 'U' || result === 'D') {
@@ -253,8 +246,8 @@ function handleAuthResult(result) {
 
 async function loadCurrentValues() {
   try {
-    const val = await authStatChar.readValue();
-    const result = dec.decode(val).trim().replace(/\0/g, '');
+    const idleVal = await idleChar.readValue();
+    const climbVal = await climbChar.readValue();
     document.getElementById('idleInput').value = dec.decode(idleVal);
     document.getElementById('climbInput').value = dec.decode(climbVal);
   } catch (err) {
