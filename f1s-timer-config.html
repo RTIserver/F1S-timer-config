@@ -23,7 +23,7 @@
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     font-size: 16px; line-height: 1.5;
   }
-  .wrap { max-width: 420px; margin: 0 auto; }
+  .wrap { max-width: 460px; margin: 0 auto; }
   h1 { font-size: 20px; font-weight: 600; margin: 0 0 4px; }
   .sub { color: var(--muted); font-size: 14px; margin: 0 0 20px; }
   .card {
@@ -35,26 +35,19 @@
   .dot.connected { background: var(--ok); }
   .dot.error { background: var(--err); }
   button {
-    width: 100%; padding: 13px; border: none; border-radius: var(--radius);
+    padding: 13px; border: none; border-radius: var(--radius);
     background: var(--accent); color: #fff; font-size: 16px; font-weight: 500; cursor: pointer;
   }
   button:active { background: var(--accent-dark); }
   button:disabled { background: var(--border); color: var(--muted); cursor: not-allowed; }
-  input[type="text"], input[type="number"] {
+  .full-btn { width: 100%; }
+  input[type="text"] {
     width: 100%; padding: 11px; border: 1px solid var(--border); border-radius: 8px;
     font-size: 16px; background: #fff; color: var(--text);
   }
   .pin-row { display: flex; gap: 8px; margin-top: 10px; }
   .pin-row input { flex: 1; letter-spacing: 4px; text-align: center; }
   .pin-row button { width: auto; padding: 11px 18px; flex-shrink: 0; }
-  table { width: 100%; border-collapse: collapse; margin-top: 4px; }
-  th { text-align: left; font-size: 13px; color: var(--muted); font-weight: 500; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
-  td { padding: 10px 0; border-bottom: 1px solid var(--border); vertical-align: middle; }
-  tr:last-child td { border-bottom: none; }
-  td.label { font-weight: 500; }
-  td.unit { color: var(--muted); font-size: 13px; text-align: right; width: 44px; }
-  td.value input { width: 90px; padding: 8px; }
-  .save-row { margin-top: 16px; }
   .msg { font-size: 13px; margin-top: 8px; min-height: 18px; }
   .msg.ok { color: var(--ok); }
   .msg.err { color: var(--err); }
@@ -63,13 +56,39 @@
     background: #fdf5e8; border: 1px solid #edd9ad; border-radius: var(--radius);
     padding: 12px 14px; font-size: 13px; color: #6b5111; margin-bottom: 16px;
   }
+
+  .param-row {
+    border-bottom: 1px solid var(--border);
+    padding: 14px 0;
+  }
+  .param-row:last-child { border-bottom: none; }
+  .param-label {
+    font-weight: 500; font-size: 14px; margin-bottom: 8px;
+    display: flex; justify-content: space-between; align-items: baseline;
+  }
+  .param-value {
+    font-variant-numeric: tabular-nums;
+    font-size: 15px; color: var(--accent); font-weight: 600;
+  }
+  .param-buttons {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+  }
+  .param-buttons button {
+    padding: 10px 0;
+    font-size: 15px;
+    font-weight: 600;
+  }
+  .param-buttons button.big { background: var(--accent-dark); }
+  .param-status { font-size: 12px; color: var(--muted); margin-top: 4px; min-height: 15px; }
 </style>
 </head>
 <body>
 <div class="wrap">
   <h1>F1S timer - test konfig</h1>
-  <p class="sub">Simpel testside til ESC-værdier over Bluetooth Low Energy</p>
-  <p class="sub" style="color:#a32d2d; font-weight:600;">Version: v16-byte-split</p>
+  <p class="sub">Simpel testside til alle indstillinger over Bluetooth Low Energy</p>
+  <p class="sub" style="color:#a32d2d; font-weight:600;">Version: v17-register-protokol</p>
 
   <div id="iosNote" class="ios-note hidden">
     Safari understøtter ikke Bluetooth. Åbn denne side i <strong>Bluefy</strong> (gratis app fra App Store) for at forbinde.
@@ -80,7 +99,7 @@
       <div id="statusDot" class="dot"></div>
       <span id="statusText">Ikke forbundet</span>
     </div>
-    <button id="connectBtn">Forbind til timer</button>
+    <button class="full-btn" id="connectBtn">Forbind til timer</button>
   </div>
 
   <div id="authCard" class="card hidden">
@@ -93,27 +112,8 @@
   </div>
 
   <div id="configCard" class="card hidden">
-    <table>
-      <thead>
-        <tr><th>Værdi</th><th></th><th class="unit">Enhed</th></tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td class="label">Tomgang power</td>
-          <td class="value"><input type="number" id="idleInput" min="1000" max="2000"></td>
-          <td class="unit">µs</td>
-        </tr>
-        <tr>
-          <td class="label">Climb power</td>
-          <td class="value"><input type="number" id="climbInput" min="1000" max="2000"></td>
-          <td class="unit">µs</td>
-        </tr>
-      </tbody>
-    </table>
-    <div class="save-row">
-      <button id="saveBtn">Gem værdier</button>
-    </div>
-    <div id="saveMsg" class="msg"></div>
+    <div id="paramList"></div>
+    <div id="loadMsg" class="msg"></div>
   </div>
 </div>
 
@@ -121,16 +121,24 @@
 const SERVICE_UUID        = "12345678-1234-5678-1234-56789abcdef0";
 const CHAR_AUTH_UUID      = "12345678-1234-5678-1234-56789abcdef1";
 const CHAR_AUTH_STAT_UUID = "12345678-1234-5678-1234-56789abcdef2";
-const CHAR_IDLE_UUID      = "12345678-1234-5678-1234-56789abcdef3";
-const CHAR_CLIMB_UUID     = "12345678-1234-5678-1234-56789abcdef4";
-const CHAR_IDLE_LO_UUID   = "12345678-1234-5678-1234-56789abcdef5";
-const CHAR_IDLE_HI_UUID   = "12345678-1234-5678-1234-56789abcdef6";
-const CHAR_CLIMB_LO_UUID  = "12345678-1234-5678-1234-56789abcdef7";
-const CHAR_CLIMB_HI_UUID  = "12345678-1234-5678-1234-56789abcdef8";
+const CHAR_SELECT_UUID    = "12345678-1234-5678-1234-56789abcdef9";
+const CHAR_VALUE_LO_UUID  = "12345678-1234-5678-1234-56789abcdefa";
+const CHAR_VALUE_HI_UUID  = "12345678-1234-5678-1234-56789abcdefb";
+const CHAR_ADJUST_UUID    = "12345678-1234-5678-1234-56789abcdefc";
+
+// Skal matche raekkefoelgen af parametre i firmwaren praecist
+const PARAMS = [
+  { label: "Idle power",     unit: "µs" },
+  { label: "Climb power",    unit: "µs" },
+  { label: "Motor run-time", unit: "ms" },
+  { label: "Fade-tid",       unit: "ms" },
+  { label: "DT-tid",         unit: "sek" },
+  { label: "Servo start-pos",unit: "µs" },
+  { label: "Servo DT-pos",   unit: "µs" },
+];
 
 let device, server;
-let authChar, authStatChar, idleChar, climbChar;
-let idleLoChar, idleHiChar, climbLoChar, climbHiChar;
+let authChar, authStatChar, selectChar, valueLoChar, valueHiChar, adjustChar;
 const enc = new TextEncoder();
 const dec = new TextDecoder();
 
@@ -140,7 +148,8 @@ const connectBtn = document.getElementById('connectBtn');
 const authCard = document.getElementById('authCard');
 const configCard = document.getElementById('configCard');
 const authMsg = document.getElementById('authMsg');
-const saveMsg = document.getElementById('saveMsg');
+const loadMsg = document.getElementById('loadMsg');
+const paramList = document.getElementById('paramList');
 
 if (/iP(hone|ad|od)/.test(navigator.userAgent) && !navigator.bluetooth) {
   document.getElementById('iosNote').classList.remove('hidden');
@@ -155,6 +164,34 @@ function setStatus(text, cls) {
   statusDot.className = 'dot' + (cls ? ' ' + cls : '');
 }
 
+// Bygger param-rækkerne i HTML én gang
+PARAMS.forEach((p, i) => {
+  const row = document.createElement('div');
+  row.className = 'param-row';
+  row.innerHTML = `
+    <div class="param-label">
+      <span>${p.label}</span>
+      <span class="param-value" id="val-${i}">-</span>
+    </div>
+    <div class="param-buttons">
+      <button data-idx="${i}" data-code="2" class="big">--</button>
+      <button data-idx="${i}" data-code="0">-</button>
+      <button data-idx="${i}" data-code="1">+</button>
+      <button data-idx="${i}" data-code="3" class="big">++</button>
+    </div>
+    <div class="param-status" id="stat-${i}"></div>
+  `;
+  paramList.appendChild(row);
+});
+
+paramList.addEventListener('click', async (e) => {
+  const btn = e.target.closest('button[data-idx]');
+  if (!btn) return;
+  const idx = parseInt(btn.dataset.idx, 10);
+  const code = parseInt(btn.dataset.code, 10);
+  await adjustParam(idx, code);
+});
+
 connectBtn.addEventListener('click', async () => {
   try {
     setStatus('Søger...', '');
@@ -168,12 +205,10 @@ connectBtn.addEventListener('click', async () => {
 
     authChar = await service.getCharacteristic(CHAR_AUTH_UUID);
     authStatChar = await service.getCharacteristic(CHAR_AUTH_STAT_UUID);
-    idleChar = await service.getCharacteristic(CHAR_IDLE_UUID);
-    climbChar = await service.getCharacteristic(CHAR_CLIMB_UUID);
-    idleLoChar = await service.getCharacteristic(CHAR_IDLE_LO_UUID);
-    idleHiChar = await service.getCharacteristic(CHAR_IDLE_HI_UUID);
-    climbLoChar = await service.getCharacteristic(CHAR_CLIMB_LO_UUID);
-    climbHiChar = await service.getCharacteristic(CHAR_CLIMB_HI_UUID);
+    selectChar = await service.getCharacteristic(CHAR_SELECT_UUID);
+    valueLoChar = await service.getCharacteristic(CHAR_VALUE_LO_UUID);
+    valueHiChar = await service.getCharacteristic(CHAR_VALUE_HI_UUID);
+    adjustChar = await service.getCharacteristic(CHAR_ADJUST_UUID);
 
     setStatus('Forbundet - lås op med kode', 'connected');
     authCard.classList.remove('hidden');
@@ -247,15 +282,13 @@ function handleAuthResult(result) {
     authMsg.textContent = '';
     authCard.classList.add('hidden');
     configCard.classList.remove('hidden');
-    loadByteValues();
+    loadAllParams();
   } else if (result === 'D') {
     authMsg.textContent = 'Forkert kode';
     authMsg.className = 'msg err';
   }
 }
 
-// Læser en enkelt-byte characteristic og returnerer tallet 0-255, med
-// timeout og et par forsøg - kun 1-byte reads har vist sig paalidelige.
 async function readByte(characteristic, label) {
   for (let i = 0; i < 6; i++) {
     try {
@@ -263,60 +296,66 @@ async function readByte(characteristic, label) {
         characteristic.readValue(),
         new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 1200))
       ]);
-      if (val.byteLength >= 1) {
-        return val.getUint8(0);
-      }
+      if (val.byteLength >= 1) return val.getUint8(0);
     } catch (err) {
       console.error(label + ' read-forsøg ' + i + ' fejlede', err);
     }
-    await new Promise(r => setTimeout(r, 200));
+    await new Promise(r => setTimeout(r, 150));
   }
   return null;
 }
 
-async function loadByteValues() {
-  saveMsg.textContent = 'Henter værdier...';
-  saveMsg.className = 'msg';
-
-  const idleLo = await readByte(idleLoChar, 'idleLo');
-  const idleHi = await readByte(idleHiChar, 'idleHi');
-  const climbLo = await readByte(climbLoChar, 'climbLo');
-  const climbHi = await readByte(climbHiChar, 'climbHi');
-
-  if (idleLo !== null && idleHi !== null) {
-    document.getElementById('idleInput').value = idleLo + idleHi * 256;
-  }
-  if (climbLo !== null && climbHi !== null) {
-    document.getElementById('climbInput').value = climbLo + climbHi * 256;
-  }
-
-  if (idleLo !== null && idleHi !== null && climbLo !== null && climbHi !== null) {
-    saveMsg.textContent = '';
-  } else {
-    const missing = [];
-    if (idleLo === null || idleHi === null) missing.push('tomgang');
-    if (climbLo === null || climbHi === null) missing.push('climb');
-    saveMsg.textContent = 'Kunne ikke hente: ' + missing.join(', ');
-    saveMsg.className = 'msg err';
-  }
+async function readCurrentValue() {
+  const lo = await readByte(valueLoChar, 'lo');
+  const hi = await readByte(valueHiChar, 'hi');
+  if (lo === null || hi === null) return null;
+  return lo + hi * 256;
 }
 
-document.getElementById('saveBtn').addEventListener('click', async () => {
-  const idle = document.getElementById('idleInput').value;
-  const climb = document.getElementById('climbInput').value;
+async function loadAllParams() {
+  loadMsg.textContent = 'Henter værdier...';
+  loadMsg.className = 'msg';
+
+  for (let i = 0; i < PARAMS.length; i++) {
+    loadMsg.textContent = 'Henter værdier... (' + (i + 1) + '/' + PARAMS.length + ')';
+    try {
+      await selectChar.writeValue(new Uint8Array([i]));
+    } catch (err) {
+      console.error('Select fejlede for index ' + i, err);
+      document.getElementById('val-' + i).textContent = 'fejl';
+      continue;
+    }
+    await new Promise(r => setTimeout(r, 150));
+    const val = await readCurrentValue();
+    document.getElementById('val-' + i).textContent = (val !== null) ? val : 'fejl';
+  }
+
+  loadMsg.textContent = '';
+}
+
+async function adjustParam(idx, code) {
+  const statusEl = document.getElementById('stat-' + idx);
+  const valueEl = document.getElementById('val-' + idx);
+  statusEl.textContent = '...';
 
   try {
-    await idleChar.writeValue(enc.encode(idle));
-    await climbChar.writeValue(enc.encode(climb));
-    saveMsg.textContent = 'Gemt';
-    saveMsg.className = 'msg ok';
-    setTimeout(() => { saveMsg.textContent = ''; }, 2000);
+    await adjustChar.writeValue(new Uint8Array([idx, code]));
   } catch (err) {
-    saveMsg.textContent = 'Kunne ikke gemme - er konfig-vinduet stadig åbent?';
-    saveMsg.className = 'msg err';
+    statusEl.textContent = 'Fejl ved skrivning';
     console.error(err);
+    return;
   }
-});
+
+  await new Promise(r => setTimeout(r, 150));
+  const val = await readCurrentValue();
+
+  if (val !== null) {
+    valueEl.textContent = val;
+    statusEl.textContent = '';
+  } else {
+    statusEl.textContent = 'Kunne ikke bekræfte - tjek værdien';
+  }
+}
 </script>
 </body>
 </html>
