@@ -2,7 +2,7 @@
 <html lang="da">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>F1S Timer - Test konfig</title>
 <style>
   :root {
@@ -37,6 +37,7 @@
   button {
     padding: 13px; border: none; border-radius: var(--radius);
     background: var(--accent); color: #fff; font-size: 16px; font-weight: 500; cursor: pointer;
+    touch-action: manipulation;
   }
   button:active { background: var(--accent-dark); }
   button:disabled { background: var(--border); color: var(--muted); cursor: not-allowed; }
@@ -87,7 +88,7 @@
 <div class="wrap">
   <h1>F1S timer - test konfig</h1>
   <p class="sub">Simpel testside til alle indstillinger over Bluetooth Low Energy</p>
-  <p class="sub" style="color:#a32d2d; font-weight:600;">Version: v18-decimal-tid</p>
+  <p class="sub" style="color:#a32d2d; font-weight:600;">Version: v19-uden-zoom</p>
 
   <div id="iosNote" class="ios-note hidden">
     Safari understøtter ikke Bluetooth. Åbn denne side i <strong>Bluefy</strong> (gratis app fra App Store) for at forbinde.
